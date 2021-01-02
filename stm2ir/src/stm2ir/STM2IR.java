@@ -54,8 +54,6 @@ public class STM2IR {
 	            printStream.println(iterator.next());
 	        }
 	        printStream.close();
-		// TODO Auto-generated method stub
-
 	}
 	   
 
