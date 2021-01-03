@@ -13,7 +13,7 @@ public class STM2IR_v2 {
 
 	private static Map<String, String> variableDictionary = new HashMap<String, String>();
 
-	private static int entryType;
+	private static EntryType entryType;
 
 	private static String inputLine;
 
@@ -30,7 +30,7 @@ public class STM2IR_v2 {
 
 		System.out.print(entryType + "\n");
 
-		if (entryType == 1) {
+		if (entryType == EntryType.DirectAssignment) {
 			generateOutputForDirectAssignments();
 		}
 
@@ -60,24 +60,15 @@ public class STM2IR_v2 {
 
 	}
 
-	private static int getEntryType() {
-		// TODO Auto-generated method stub
-		if (!inputLine.contains("=")) {
-			// if the statement doesn't include = , then this is a variable to be printed
-			return 3;
-		} else if (inputLine.contains("=")) {
+	private static EntryType getEntryType() {
+		if (inputLine.contains("=")) {
 			for (int i = 0; i < operations.length; i++) {
 				if (inputLine.contains(operations[i])) {
-					// if returns 2, there is a computation to do
-					return 2;
+					return EntryType.Calculation;
 				}
 			}
-			// if returns 3, this is an assignment of a variable
-			return 1;
-
+			return EntryType.DirectAssignment;
 		}
-		return 0;
+		return EntryType.Print;
 	}
-
-
 }
