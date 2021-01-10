@@ -1,9 +1,6 @@
 package stm2ir;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,18 +23,18 @@ public class STM2IR {
 
 	private static String[] operations = { "+", "-", "/", "*" };
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
 
 		outputList.add("; ModuleID = 'stm2ir'");
 		outputList.add("declare i32 @printf(i8*, ...)");
 		outputList.add("@print.str = constant [4 x i8] c\"%d\\0A\\00\"");
 		outputList.add("define i32 @main() {");
-
-		//Scanner input = new Scanner(new File(args[0]), "UTF-8");
+		// TODO: Get project file folder static variable
 		Scanner input = new Scanner(new File("/Users/sabri/Desktop/file.stm"), "UTF-8");
 		while (input.hasNextLine()) {
 			 String line = input.nextLine().replaceAll("\\s+", "");
 			lineCounter++;
+			if(!checkParenthesis(line)) throw new Exception("Parenthesis error"); 
 			switch (getEntryType(line)) {
 			case DirectAssignment:
 				DirectAssignments(line);
@@ -54,7 +51,7 @@ public class STM2IR {
 					outputList.add("%" + left + " = alloca i32");
 				}
 				Calculation(right);
-				outputList.add("store i32 %" + (lineCounter - 1) + "," + left);
+				outputList.add("store i32 %" + (lineCounter - 1) + ", i32* %" + left);
 				variableDictionary.replace(left, String.valueOf(lineCounter - 1));
 				break;
 			default:
@@ -64,7 +61,6 @@ public class STM2IR {
 		input.close();
 		outputList.add("ret i32 0");
 		outputList.add("}");
-
 		PrintStream printStream = new PrintStream("/Users/sabri/Desktop/file.ll", "UTF-8");
 		for (ListIterator<String> iterator = outputList.listIterator(); iterator.hasNext();) {
 			printStream.println(iterator.next());
@@ -72,12 +68,21 @@ public class STM2IR {
 		printStream.close();
 
 	}
+	private static boolean checkParenthesis(String line) {
+		int opened = 0;
+	     for (int i = 0; i < line.length(); i++) {
+	         if (line.charAt(i) == '(')
+	             opened++;
+	         else if (line.charAt(i) == ')') {
+	             if (opened == 0)    // means that all parentheses are "closed" yet
+	                return false;
+	             opened--;
+	         }
+	     }
+	     return opened == 0;
+	}
 
 	private static void DirectAssignments(String inputLine) {
-		/*
-		 * splits the string on the first "=" sign, takes the first part and adds to the
-		 * variableList (if it has not been added yet)
-		 */
 		String[] input = inputLine.split("=", 2);
 		String variable = input[0].strip();
 		String value = input[1].strip();
@@ -86,11 +91,9 @@ public class STM2IR {
 			outputList.add("%" + variable + " = alloca i32");
 			outputList.add("store i32 " + value + " , i32* %" + variable);
 		}
-
 	}
 
-	private static int Operation(String operand1, String operand2, String operation) {
-
+	private static int  Operation(String operand1, String operand2, String operation) throws Exception {
 		if (variableDictionary.containsKey(operand1)) {
 			outputList.add("%" + lineCounter + " = load i32* %" + operand1);
 			variableDictionary.replace(operand1, "%" + lineCounter);
@@ -113,6 +116,7 @@ public class STM2IR {
 			lineCounter++;
 			return lineCounter;
 		case ("/"):
+			if(Double.parseDouble(operand1) == 0) throw new Exception("Divided by zero");
 			outputList.add("%" + lineCounter + " = udiv i32 " + operand1 + " , " + operand2);
 			lineCounter++;
 			return lineCounter;
@@ -125,19 +129,16 @@ public class STM2IR {
 		}
 	}
 
-	private static String Calculation(String expression) {
-
+	private static String Calculation(String expression) throws Exception {
 		while (expression.contains("(") || expression.contains(")")) {
 			int begin = expression.lastIndexOf('('), end = expression.indexOf(')', begin);
-
 			String inside = expression.substring(begin + 1, end);
 			expression = expression.replace("(" + inside + ")", Calculation(inside));
 		}
 
-		List<String> lineOfNumbers = new ArrayList(Arrays
-				.asList(expression.replaceAll("[+*/-]", " ").replaceAll(" +", " ").strip().split(" ")));
+		ArrayList<String> lineOfNumbers = new ArrayList<String>(Arrays.asList(expression.replaceAll("[+*/-]", " ").replaceAll(" +", " ").strip().split(" ")));
 
-		List<String> lineOfOperations = new ArrayList(Arrays.asList(expression.replaceAll("[^-+*/]", "").strip().split("")));
+		List<String> lineOfOperations = new ArrayList<String>(Arrays.asList(expression.replaceAll("[^-+*/]", "").strip().split("")));
 
 		var operationLength = lineOfOperations.size();
 
@@ -171,13 +172,9 @@ public class STM2IR {
 			}
 			operationLength = lineOfOperations.size();
 		}
-		// expression return 23+x1*1+y  sadece parantez siliniyor. burada işlemin sonucu olan lineCount dönmesi gerek
 		return "%"+lineCounter;
 	}
 
-	private static void Print(String inputLine) {
-
-	}
 
 	private static EntryType getEntryType(String inputLine) {
 		if (inputLine.contains("=")) {
