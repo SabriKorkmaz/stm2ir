@@ -32,9 +32,10 @@ public class STM2IR {
 		// TODO: Get project file folder static variable
 		Scanner input = new Scanner(new File("/Users/sabri/Desktop/file.stm"), "UTF-8");
 		while (input.hasNextLine()) {
-			 String line = input.nextLine().replaceAll("\\s+", "");
+			String line = input.nextLine().replaceAll("\\s+", "");
 			lineCounter++;
-			if(!checkParenthesis(line)) throw new Exception("Parenthesis error"); 
+			if (!checkParenthesis(line))
+				throw new Exception("Parenthesis error");
 			switch (getEntryType(line)) {
 			case DirectAssignment:
 				DirectAssignments(line);
@@ -45,12 +46,12 @@ public class STM2IR {
 						"call i32 (i8*, ...)* @printf(i8* getelementptr ([4 x i8]* @print.str, i32 0, i32 0), i32 %"
 								+ lineCounter + " )");
 				break;
-			case Calculation:
+			case Equation:
 				String left = line.split("=")[0], right = line.split("=")[1];
 				if (!variableDictionary.containsValue(left)) {
 					outputList.add("%" + left + " = alloca i32");
 				}
-				Calculation(right);
+				Equation(right);
 				outputList.add("store i32 %" + (lineCounter - 1) + ", i32* %" + left);
 				variableDictionary.replace(left, String.valueOf(lineCounter - 1));
 				break;
@@ -68,18 +69,112 @@ public class STM2IR {
 		printStream.close();
 
 	}
+
+	private static String Equation(String expression) throws Exception {
+
+		if(expression.isBlank()) throw new Exception("Unexpected expression");
+		
+		while (expression.contains("(") || expression.contains(")")) {
+			int begin = expression.lastIndexOf('('), end = expression.indexOf(')', begin);
+			String inside = expression.substring(begin + 1, end);
+			expression = expression.replace("(" + inside + ")", Equation(inside));
+		}
+
+		ArrayList<String> lineOfNumbers = new ArrayList<String>(
+				Arrays.asList(expression.replaceAll("[+*/-]", " ").replaceAll(" +", " ").strip().split(" ")));
+
+		List<String> lineOfOperations = new ArrayList<String>(
+				Arrays.asList(expression.replaceAll("[^-+*/]", "").strip().split("")));
+
+		var operationLength = lineOfOperations.size();
+
+		while (operationLength > 0) {
+			int i = 0;
+
+			if (lineOfOperations.get(i) == "+" || lineOfOperations.get(i) == "-") {
+				if (lineOfOperations.get(i + 1) == "*" || lineOfOperations.get(i + 1) == "/") {
+					operationLength = Calculation(i + 1, lineOfNumbers, lineOfOperations);
+
+				} else {
+					operationLength = Calculation(i, lineOfNumbers, lineOfOperations);
+				}
+			} else {
+				operationLength = Calculation(i, lineOfNumbers, lineOfOperations);
+			}
+		}
+		return "%" + lineCounter;
+	}
+
+	private static int Calculation(int index, ArrayList<String> lineOfNumbers, List<String> lineOfOperations)
+			throws Exception {
+		String operation = lineOfOperations.get(index);
+		String operand1 = lineOfNumbers.get(index);
+		String operand2 = lineOfNumbers.get(index + 1);
+		lineOfNumbers.set(index + 1, "%" + PrintCalculation(operand1, operand2, operation));
+		lineOfNumbers.remove(index);
+		lineOfOperations.remove(index);
+		return lineOfOperations.size();
+	}
+
+	private static int PrintCalculation(String operand1, String operand2, String operation) throws Exception {
+		operand1 = checkVariableExist(operand1);
+		operand2 = checkVariableExist(operand2);
+		switch (operation) {
+		case ("*"):
+			outputList.add("%" + lineCounter + " = mul i32 " + operand1 + " , " + operand2);
+			lineCounter++;
+			return lineCounter;
+		case ("+"):
+			outputList.add("%" + lineCounter + " = add i32 " + operand1 + " , " + operand2);
+			lineCounter++;
+			return lineCounter;
+		case ("/"):
+			if (Double.parseDouble(operand1) == 0)
+				throw new Exception("Divided by zero");
+			outputList.add("%" + lineCounter + " = udiv i32 " + operand1 + " , " + operand2);
+			lineCounter++;
+			return lineCounter;
+		case ("-"):
+			outputList.add("%" + lineCounter + " = sub i32 " + operand1 + " , " + operand2);
+			lineCounter++;
+			return lineCounter;
+		default:
+			return 0;
+		}
+	}
+
 	private static boolean checkParenthesis(String line) {
 		int opened = 0;
-	     for (int i = 0; i < line.length(); i++) {
-	         if (line.charAt(i) == '(')
-	             opened++;
-	         else if (line.charAt(i) == ')') {
-	             if (opened == 0)    // means that all parentheses are "closed" yet
-	                return false;
-	             opened--;
-	         }
-	     }
-	     return opened == 0;
+		for (int i = 0; i < line.length(); i++) {
+			if (line.charAt(i) == '(')
+				opened++;
+			else if (line.charAt(i) == ')') {
+				if (opened == 0) // means that all parentheses are "closed" yet
+					return false;
+				opened--;
+			}
+		}
+		return opened == 0;
+	}
+
+	private static EntryType getEntryType(String inputLine) {
+
+		if (inputLine.contains("=")) {
+			for (int i = 0; i < operations.length; i++) {
+				if (inputLine.contains(operations[i])) {
+					var right = inputLine.split("=")[1].strip();
+					if (((right.charAt(0) == '-') || (right.charAt(0) == '+'))
+							&& (!right.substring(1).contains("*") || !right.substring(1).contains("+")
+									|| !right.substring(1).contains("-") || !right.substring(1).contains("/"))) {
+						return EntryType.DirectAssignment;
+
+					}
+					return EntryType.Equation;
+				}
+			}
+			return EntryType.DirectAssignment;
+		}
+		return EntryType.Print;
 	}
 
 	private static void DirectAssignments(String inputLine) {
@@ -93,99 +188,13 @@ public class STM2IR {
 		}
 	}
 
-	private static int  Operation(String operand1, String operand2, String operation) throws Exception {
-		if (variableDictionary.containsKey(operand1)) {
-			outputList.add("%" + lineCounter + " = load i32* %" + operand1);
-			variableDictionary.replace(operand1, "%" + lineCounter);
-			operand1 = variableDictionary.get(operand1);
+	private static String checkVariableExist(String variable) {
+		if (variableDictionary.containsKey(variable)) {
+			outputList.add("%" + lineCounter + " = load i32* %" + variable);
+			variableDictionary.replace(variable, "%" + lineCounter);
+			variable = variableDictionary.get(variable);
 			lineCounter++;
 		}
-		if (variableDictionary.containsKey(operand2)) {
-			outputList.add("%" + lineCounter + " = load i32* %" + operand2);
-			variableDictionary.replace(operand2, "%" + lineCounter);
-			operand2 = variableDictionary.get(operand2);
-			lineCounter++;
-		}
-		switch (operation) {
-		case ("*"):
-			outputList.add("%" + lineCounter + " = mul i32 " + operand1 + " , " + operand2);
-			lineCounter++;
-			return lineCounter;
-		case ("+"):
-			outputList.add("%" + lineCounter + " = add i32 " + operand1 + " , " + operand2);
-			lineCounter++;
-			return lineCounter;
-		case ("/"):
-			if(Double.parseDouble(operand1) == 0) throw new Exception("Divided by zero");
-			outputList.add("%" + lineCounter + " = udiv i32 " + operand1 + " , " + operand2);
-			lineCounter++;
-			return lineCounter;
-		case ("-"):
-			outputList.add("%" + lineCounter + " = sub i32 " + operand1 + " , " + operand2);
-			lineCounter++;
-			return lineCounter;
-		default:
-			return 0;
-		}
+		return variable;
 	}
-
-	private static String Calculation(String expression) throws Exception {
-		while (expression.contains("(") || expression.contains(")")) {
-			int begin = expression.lastIndexOf('('), end = expression.indexOf(')', begin);
-			String inside = expression.substring(begin + 1, end);
-			expression = expression.replace("(" + inside + ")", Calculation(inside));
-		}
-
-		ArrayList<String> lineOfNumbers = new ArrayList<String>(Arrays.asList(expression.replaceAll("[+*/-]", " ").replaceAll(" +", " ").strip().split(" ")));
-
-		List<String> lineOfOperations = new ArrayList<String>(Arrays.asList(expression.replaceAll("[^-+*/]", "").strip().split("")));
-
-		var operationLength = lineOfOperations.size();
-
-		while (operationLength > 0) {
-			int i = 0;
-			if (lineOfOperations.get(i) == "+" || lineOfOperations.get(i) == "-") {
-				if (lineOfOperations.get(i + 1) == "*" || lineOfOperations.get(i + 1) == "/") {
-					String operation = lineOfOperations.get(i + 1);
-					String operand1 = lineOfNumbers.get(i + 1);
-					String operand2 = lineOfNumbers.get(i + 2);
-					lineOfNumbers.set(i + 2, "%" + Operation(operand1, operand2, operation));
-					lineOfNumbers.remove(i + 1);
-					lineOfOperations.remove(i + 1);
-					
-				} else {
-					String operation = lineOfOperations.get(i);
-					String operand1 = lineOfNumbers.get(i);
-					String operand2 = lineOfNumbers.get(i + 1);
-					lineOfNumbers.set(i + 1, "%" + Operation(operand1, operand2, operation));
-					lineOfNumbers.remove(i);
-					lineOfOperations.remove(i);
-					
-				}
-			} else {
-				String operation = lineOfOperations.get(i);
-				String operand1 = lineOfNumbers.get(i);
-				String operand2 = lineOfNumbers.get(i + 1);
-				lineOfNumbers.set(i + 1, "%" + Operation(operand1, operand2, operation));
-				lineOfNumbers.remove(i);
-				lineOfOperations.remove(i);
-			}
-			operationLength = lineOfOperations.size();
-		}
-		return "%"+lineCounter;
-	}
-
-
-	private static EntryType getEntryType(String inputLine) {
-		if (inputLine.contains("=")) {
-			for (int i = 0; i < operations.length; i++) {
-				if (inputLine.contains(operations[i])) {
-					return EntryType.Calculation;
-				}
-			}
-			return EntryType.DirectAssignment;
-		}
-		return EntryType.Print;
-	}
-
 }

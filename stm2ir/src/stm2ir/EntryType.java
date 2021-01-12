@@ -2,6 +2,6 @@ package stm2ir;
 
 public enum EntryType {
 	Print,
-	Calculation,
+	Equation,
 	DirectAssignment
 }

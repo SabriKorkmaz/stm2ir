@@ -7,8 +7,17 @@ import org.junit.jupiter.api.Test;
 class test_stm2ir {
 
 	@Test
-	void test() {
-		fail("Not yet implemented");
+	void Equation_NullExpression_ThrowException() {
+
 	}
 
+	@Test
+	void Equation_SpecifiedExpression_SpecifiedValue() {
+		
+	}
+
+	@Test
+	void Equation_SpecifiedExpression_ThrowException() {
+		fail("Not yet implemented");
+	}
 }
