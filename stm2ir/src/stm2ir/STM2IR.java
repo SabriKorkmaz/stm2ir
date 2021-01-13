@@ -30,7 +30,7 @@ public class STM2IR {
 		outputList.add("@print.str = constant [4 x i8] c\"%d\\0A\\00\"");
 		outputList.add("define i32 @main() {");
 		// TODO: Get project file folder static variable
-		Scanner input = new Scanner(new File("/Users/sabri/Desktop/file.stm"), "UTF-8");
+		Scanner input = new Scanner(new File("/Users/cemekmekcioglu/Desktop/file.stm"), "UTF-8");
 		while (input.hasNextLine()) {
 			String line = input.nextLine().replaceAll("\\s+", "");
 			if (!checkParenthesis(line))
@@ -40,7 +40,8 @@ public class STM2IR {
 				DirectAssignments(line);
 				break;
 			case Print:
-				outputList.add("%" + lineCounter + " = load i32* %" + line);
+				lineCounter = lineCounter + 1;
+				outputList.add("%" + (lineCounter) + " = load i32* %" + line);
 				outputList.add(
 						"call i32 (i8*, ...)* @printf(i8* getelementptr ([4 x i8]* @print.str, i32 0, i32 0), i32 %"
 								+ lineCounter + " )");
@@ -54,13 +55,17 @@ public class STM2IR {
 						outputList.add("%" + left + " = alloca i32");
 						variableDictionary.put(left, "%" + lineCounter);
 					}
+					Equation(right);
 					outputList.add("store i32 %" + (lineCounter) + ", i32* %" + left);
 					variableDictionary.replace(left, "%" + String.valueOf(lineCounter));
 				} else {
-					right = line;
+
+					Equation(line);
+					outputList.add(
+							"call i32 (i8*, ...)* @printf(i8* getelementptr ([4 x i8]* @print.str, i32 0, i32 0), i32 %"
+									+ lineCounter + " )");
 				}
 
-				Equation(right);
 
 				break;
 			default:
@@ -70,7 +75,7 @@ public class STM2IR {
 		input.close();
 		outputList.add("ret i32 0");
 		outputList.add("}");
-		PrintStream printStream = new PrintStream("/Users/sabri/Desktop/file.ll", "UTF-8");
+		PrintStream printStream = new PrintStream("/Users/cemekmekcioglu/Desktop/file.ll", "UTF-8");
 		for (ListIterator<String> iterator = outputList.listIterator(); iterator.hasNext();) {
 			printStream.println(iterator.next());
 		}
