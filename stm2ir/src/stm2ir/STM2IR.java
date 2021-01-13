@@ -30,7 +30,7 @@ public class STM2IR {
 		outputList.add("@print.str = constant [4 x i8] c\"%d\\0A\\00\"");
 		outputList.add("define i32 @main() {");
 		// TODO: Get project file folder static variable
-		Scanner input = new Scanner(new File("/Users/cemekmekcioglu/Desktop/file.stm"), "UTF-8");
+		Scanner input = new Scanner(new File("/Users/sabri/Desktop/file.stm"), "UTF-8");
 		while (input.hasNextLine()) {
 			String line = input.nextLine().replaceAll("\\s+", "");
 			if (!checkParenthesis(line))
@@ -46,14 +46,22 @@ public class STM2IR {
 								+ lineCounter + " )");
 				break;
 			case Equation:
-				String left = line.split("=")[0], right = line.split("=")[1];
-				if (!variableDictionary.containsKey(left)) {
-					outputList.add("%" + left + " = alloca i32");
-					variableDictionary.put(left, "%" + lineCounter);
+				String left = "", right = "";
+				if (line.contains("=")) {
+					left = line.split("=")[0];
+					right = line.split("=")[1];
+					if (!variableDictionary.containsKey(left)) {
+						outputList.add("%" + left + " = alloca i32");
+						variableDictionary.put(left, "%" + lineCounter);
+					}
+					outputList.add("store i32 %" + (lineCounter) + ", i32* %" + left);
+					variableDictionary.replace(left, "%" + String.valueOf(lineCounter));
+				} else {
+					right = line;
 				}
+
 				Equation(right);
-				outputList.add("store i32 %" + (lineCounter) + ", i32* %" + left);
-				variableDictionary.replace(left, "%" + String.valueOf(lineCounter));
+
 				break;
 			default:
 				break;
@@ -62,7 +70,7 @@ public class STM2IR {
 		input.close();
 		outputList.add("ret i32 0");
 		outputList.add("}");
-		PrintStream printStream = new PrintStream("/Users/cemekmekcioglu/Desktop/file.ll", "UTF-8");
+		PrintStream printStream = new PrintStream("/Users/sabri/Desktop/file.ll", "UTF-8");
 		for (ListIterator<String> iterator = outputList.listIterator(); iterator.hasNext();) {
 			printStream.println(iterator.next());
 		}
@@ -72,8 +80,9 @@ public class STM2IR {
 
 	private static String Equation(String expression) throws Exception {
 
-		if(expression.isBlank()) throw new Exception("Unexpected expression");
-		
+		if (expression.isBlank())
+			throw new Exception("Unexpected expression");
+
 		while (expression.contains("(") || expression.contains(")")) {
 			int begin = expression.lastIndexOf('('), end = expression.indexOf(')', begin);
 			String inside = expression.substring(begin + 1, end);
@@ -121,7 +130,6 @@ public class STM2IR {
 	private static int PrintCalculation(String operand1, String operand2, String operation) throws Exception {
 		operand1 = checkVariableExist(operand1);
 		operand2 = checkVariableExist(operand2);
-
 
 		switch (operation) {
 		case ("*"):
@@ -177,8 +185,15 @@ public class STM2IR {
 				}
 			}
 			return EntryType.DirectAssignment;
+		} else {
+			for (int i = 0; i < operations.length; i++) {
+				if (inputLine.contains(operations[i])) {
+					return EntryType.Equation;
+				}
+			}
+			return EntryType.Print;
 		}
-		return EntryType.Print;
+
 	}
 
 	private static void DirectAssignments(String inputLine) {
