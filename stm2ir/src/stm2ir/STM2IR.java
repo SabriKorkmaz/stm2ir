@@ -30,10 +30,9 @@ public class STM2IR {
 		outputList.add("@print.str = constant [4 x i8] c\"%d\\0A\\00\"");
 		outputList.add("define i32 @main() {");
 		// TODO: Get project file folder static variable
-		Scanner input = new Scanner(new File("/Users/sabri/Desktop/file.stm"), "UTF-8");
+		Scanner input = new Scanner(new File("/Users/cemekmekcioglu/Desktop/file.stm"), "UTF-8");
 		while (input.hasNextLine()) {
 			String line = input.nextLine().replaceAll("\\s+", "");
-			lineCounter++;
 			if (!checkParenthesis(line))
 				throw new Exception("Parenthesis error");
 			switch (getEntryType(line)) {
@@ -48,12 +47,13 @@ public class STM2IR {
 				break;
 			case Equation:
 				String left = line.split("=")[0], right = line.split("=")[1];
-				if (!variableDictionary.containsValue(left)) {
+				if (!variableDictionary.containsKey(left)) {
 					outputList.add("%" + left + " = alloca i32");
+					variableDictionary.put(left, "%" + lineCounter);
 				}
 				Equation(right);
-				outputList.add("store i32 %" + (lineCounter - 1) + ", i32* %" + left);
-				variableDictionary.replace(left, String.valueOf(lineCounter - 1));
+				outputList.add("store i32 %" + (lineCounter) + ", i32* %" + left);
+				variableDictionary.replace(left, "%" + String.valueOf(lineCounter));
 				break;
 			default:
 				break;
@@ -62,7 +62,7 @@ public class STM2IR {
 		input.close();
 		outputList.add("ret i32 0");
 		outputList.add("}");
-		PrintStream printStream = new PrintStream("/Users/sabri/Desktop/file.ll", "UTF-8");
+		PrintStream printStream = new PrintStream("/Users/cemekmekcioglu/Desktop/file.ll", "UTF-8");
 		for (ListIterator<String> iterator = outputList.listIterator(); iterator.hasNext();) {
 			printStream.println(iterator.next());
 		}
@@ -90,9 +90,10 @@ public class STM2IR {
 
 		while (operationLength > 0) {
 			int i = 0;
-
-			if (lineOfOperations.get(i) == "+" || lineOfOperations.get(i) == "-") {
-				if (lineOfOperations.get(i + 1) == "*" || lineOfOperations.get(i + 1) == "/") {
+			lineCounter++;
+			if (lineOfOperations.get(i).equals("+") || lineOfOperations.get(i).equals("-")) {
+				if (!(i + 1 >= lineOfOperations.size())
+						&& (lineOfOperations.get(i + 1).equals("*") || lineOfOperations.get(i + 1).equals("/"))) {
 					operationLength = Calculation(i + 1, lineOfNumbers, lineOfOperations);
 
 				} else {
@@ -101,6 +102,7 @@ public class STM2IR {
 			} else {
 				operationLength = Calculation(i, lineOfNumbers, lineOfOperations);
 			}
+
 		}
 		return "%" + lineCounter;
 	}
@@ -110,7 +112,7 @@ public class STM2IR {
 		String operation = lineOfOperations.get(index);
 		String operand1 = lineOfNumbers.get(index);
 		String operand2 = lineOfNumbers.get(index + 1);
-		lineOfNumbers.set(index + 1, "%" + PrintCalculation(operand1, operand2, operation));
+		lineOfNumbers.set(index + 1, "%" + String.valueOf(PrintCalculation(operand1, operand2, operation)));
 		lineOfNumbers.remove(index);
 		lineOfOperations.remove(index);
 		return lineOfOperations.size();
@@ -119,24 +121,26 @@ public class STM2IR {
 	private static int PrintCalculation(String operand1, String operand2, String operation) throws Exception {
 		operand1 = checkVariableExist(operand1);
 		operand2 = checkVariableExist(operand2);
+
+
 		switch (operation) {
 		case ("*"):
 			outputList.add("%" + lineCounter + " = mul i32 " + operand1 + " , " + operand2);
-			lineCounter++;
+			// lineCounter++;
 			return lineCounter;
 		case ("+"):
 			outputList.add("%" + lineCounter + " = add i32 " + operand1 + " , " + operand2);
-			lineCounter++;
+			// lineCounter++;
 			return lineCounter;
 		case ("/"):
 			if (Double.parseDouble(operand1) == 0)
 				throw new Exception("Divided by zero");
 			outputList.add("%" + lineCounter + " = udiv i32 " + operand1 + " , " + operand2);
-			lineCounter++;
+			// lineCounter++;
 			return lineCounter;
 		case ("-"):
 			outputList.add("%" + lineCounter + " = sub i32 " + operand1 + " , " + operand2);
-			lineCounter++;
+			// lineCounter++;
 			return lineCounter;
 		default:
 			return 0;
@@ -181,8 +185,8 @@ public class STM2IR {
 		String[] input = inputLine.split("=", 2);
 		String variable = input[0].strip();
 		String value = input[1].strip();
-		if (!variableDictionary.containsValue(variable)) {
-			variableDictionary.put(variable, variable);
+		if (!variableDictionary.containsKey(variable)) {
+			variableDictionary.put(variable, "%" + variable);
 			outputList.add("%" + variable + " = alloca i32");
 			outputList.add("store i32 " + value + " , i32* %" + variable);
 		}
@@ -191,7 +195,7 @@ public class STM2IR {
 	private static String checkVariableExist(String variable) {
 		if (variableDictionary.containsKey(variable)) {
 			outputList.add("%" + lineCounter + " = load i32* %" + variable);
-			variableDictionary.replace(variable, "%" + lineCounter);
+			variableDictionary.replace(variable, "%" + String.valueOf(lineCounter));
 			variable = variableDictionary.get(variable);
 			lineCounter++;
 		}
