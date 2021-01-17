@@ -29,7 +29,6 @@ public class STM2IR {
 		outputList.add("declare i32 @printf(i8*, ...)");
 		outputList.add("@print.str = constant [4 x i8] c\"%d\\0A\\00\"");
 		outputList.add("define i32 @main() {");
-		// TODO: Get project file folder static variable
 		Scanner input = new Scanner(new File(args[0]), "UTF-8");
 		while (input.hasNextLine()) {
 			String line = input.nextLine().replaceAll("\\s+", "");
