@@ -13,31 +13,31 @@ import java.util.Scanner;
 
 public class STM2IR {
 
-	private static LinkedList<String> outputList = new LinkedList<String>();
+	private LinkedList<String> outputList = new LinkedList<String>();
 
-	private static Map<String, String> variableDictionary = new HashMap<String, String>();
+	public Map<String, String> variableDictionary = new HashMap<String, String>();
 
-	private static EntryType entryType;
+	private EntryType entryType;
 
-	private static int lineCounter = 0;
+	public int lineCounter = 0;
 
-	private static String[] operations = { "+", "-", "/", "*" };
+	private String[] operations = { "+", "-", "/", "*" };
 
-	public static void main(String[] args) throws Exception {
+	public void main(String[] args) throws Exception {
 
 		outputList.add("; ModuleID = 'stm2ir'");
 		outputList.add("declare i32 @printf(i8*, ...)");
 		outputList.add("@print.str = constant [4 x i8] c\"%d\\0A\\00\"");
 		outputList.add("define i32 @main() {");
 		// TODO: Get project file folder static variable
-		Scanner input = new Scanner(new File("/Users/sabri/Desktop/file.stm"), "UTF-8");
+		Scanner input = new Scanner(new File(args[0]), "UTF-8");
 		while (input.hasNextLine()) {
 			String line = input.nextLine().replaceAll("\\s+", "");
 			if (!checkParenthesis(line))
 				throw new Exception("Parenthesis error");
 			switch (getEntryType(line)) {
 			case DirectAssignment:
-				DirectAssignments(line);
+				directAssignment(line);
 				break;
 			case Print:
 				outputList.add("%" + lineCounter + " = load i32* %" + line);
@@ -60,7 +60,7 @@ public class STM2IR {
 					right = line;
 				}
 
-				Equation(right);
+				equation(right);
 
 				break;
 			default:
@@ -78,15 +78,15 @@ public class STM2IR {
 
 	}
 
-	private static String Equation(String expression) throws Exception {
+	public String equation(String expression) throws Exception {
 
-		if (expression.isBlank())
+		if (expression == null)
 			throw new Exception("Unexpected expression");
 
 		while (expression.contains("(") || expression.contains(")")) {
 			int begin = expression.lastIndexOf('('), end = expression.indexOf(')', begin);
 			String inside = expression.substring(begin + 1, end);
-			expression = expression.replace("(" + inside + ")", Equation(inside));
+			expression = expression.replace("(" + inside + ")", equation(inside));
 		}
 
 		ArrayList<String> lineOfNumbers = new ArrayList<String>(
@@ -103,65 +103,61 @@ public class STM2IR {
 			if (lineOfOperations.get(i).equals("+") || lineOfOperations.get(i).equals("-")) {
 				if (!(i + 1 >= lineOfOperations.size())
 						&& (lineOfOperations.get(i + 1).equals("*") || lineOfOperations.get(i + 1).equals("/"))) {
-					operationLength = Calculation(i + 1, lineOfNumbers, lineOfOperations);
+					operationLength = calculation(i + 1, lineOfNumbers, lineOfOperations);
 
 				} else {
-					operationLength = Calculation(i, lineOfNumbers, lineOfOperations);
+					operationLength = calculation(i, lineOfNumbers, lineOfOperations);
 				}
 			} else {
-				operationLength = Calculation(i, lineOfNumbers, lineOfOperations);
+				operationLength = calculation(i, lineOfNumbers, lineOfOperations);
 			}
 
 		}
 		return "%" + lineCounter;
 	}
 
-	private static int Calculation(int index, ArrayList<String> lineOfNumbers, List<String> lineOfOperations)
+	public int calculation(int index, ArrayList<String> lineOfNumbers, List<String> lineOfOperations)
 			throws Exception {
 		String operation = lineOfOperations.get(index);
 		String operand1 = lineOfNumbers.get(index);
 		String operand2 = lineOfNumbers.get(index + 1);
-		lineOfNumbers.set(index + 1, "%" + String.valueOf(PrintCalculation(operand1, operand2, operation)));
+		lineOfNumbers.set(index + 1, "%" + String.valueOf(printCalculation(operand1, operand2, operation)));
 		lineOfNumbers.remove(index);
 		lineOfOperations.remove(index);
 		return lineOfOperations.size();
 	}
 
-	private static int PrintCalculation(String operand1, String operand2, String operation) throws Exception {
+	public int printCalculation(String operand1, String operand2, String operation) throws Exception {
 		operand1 = checkVariableExist(operand1);
 		operand2 = checkVariableExist(operand2);
 
 		switch (operation) {
 		case ("*"):
 			outputList.add("%" + lineCounter + " = mul i32 " + operand1 + " , " + operand2);
-			// lineCounter++;
 			return lineCounter;
 		case ("+"):
 			outputList.add("%" + lineCounter + " = add i32 " + operand1 + " , " + operand2);
-			// lineCounter++;
 			return lineCounter;
 		case ("/"):
 			if (Double.parseDouble(operand1) == 0)
 				throw new Exception("Divided by zero");
 			outputList.add("%" + lineCounter + " = udiv i32 " + operand1 + " , " + operand2);
-			// lineCounter++;
 			return lineCounter;
 		case ("-"):
 			outputList.add("%" + lineCounter + " = sub i32 " + operand1 + " , " + operand2);
-			// lineCounter++;
 			return lineCounter;
 		default:
 			return 0;
 		}
 	}
 
-	private static boolean checkParenthesis(String line) {
+	public boolean checkParenthesis(String line) {
 		int opened = 0;
 		for (int i = 0; i < line.length(); i++) {
 			if (line.charAt(i) == '(')
 				opened++;
 			else if (line.charAt(i) == ')') {
-				if (opened == 0) // means that all parentheses are "closed" yet
+				if (opened == 0)
 					return false;
 				opened--;
 			}
@@ -169,7 +165,7 @@ public class STM2IR {
 		return opened == 0;
 	}
 
-	private static EntryType getEntryType(String inputLine) {
+	public EntryType getEntryType(String inputLine) {
 
 		if (inputLine.contains("=")) {
 			for (int i = 0; i < operations.length; i++) {
@@ -196,8 +192,10 @@ public class STM2IR {
 
 	}
 
-	private static void DirectAssignments(String inputLine) {
-		String[] input = inputLine.split("=", 2);
+	public void directAssignment(String inputLine) throws Exception {
+		String[] input = inputLine.split("=",2);
+		if (input.length != 2)
+			throw new Exception("Unhandled expression");
 		String variable = input[0].strip();
 		String value = input[1].strip();
 		if (!variableDictionary.containsKey(variable)) {
@@ -207,7 +205,7 @@ public class STM2IR {
 		}
 	}
 
-	private static String checkVariableExist(String variable) {
+	public String checkVariableExist(String variable) {
 		if (variableDictionary.containsKey(variable)) {
 			outputList.add("%" + lineCounter + " = load i32* %" + variable);
 			variableDictionary.replace(variable, "%" + String.valueOf(lineCounter));
