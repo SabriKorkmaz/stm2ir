@@ -39,7 +39,8 @@ public class STM2IR {
 				directAssignment(line);
 				break;
 			case Print:
-				outputList.add("%" + lineCounter + " = load i32* %" + line);
+				lineCounter = lineCounter + 1;
+				outputList.add("%" + (lineCounter) + " = load i32* %" + line);
 				outputList.add(
 						"call i32 (i8*, ...)* @printf(i8* getelementptr ([4 x i8]* @print.str, i32 0, i32 0), i32 %"
 								+ lineCounter + " )");
@@ -53,13 +54,18 @@ public class STM2IR {
 						outputList.add("%" + left + " = alloca i32");
 						variableDictionary.put(left, "%" + lineCounter);
 					}
+					equation(right);
 					outputList.add("store i32 %" + (lineCounter) + ", i32* %" + left);
 					variableDictionary.replace(left, "%" + String.valueOf(lineCounter));
 				} else {
-					right = line;
+
+					equation(line);
+					outputList.add(
+							"call i32 (i8*, ...)* @printf(i8* getelementptr ([4 x i8]* @print.str, i32 0, i32 0), i32 %"
+									+ lineCounter + " )");
 				}
 
-				equation(right);
+
 
 				break;
 			default:
